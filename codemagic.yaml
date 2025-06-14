@@ -11,88 +11,116 @@ workflows:
       java: 17
 
     scripts:
-      - name: Setup und Prüfungen
+      - name: Environment Setup
         script: |
           echo "=== Environment Setup ==="
           echo "Java Version:"
           java -version
-          echo "Android SDK:"
-          echo $ANDROID_HOME
-          echo "Current Directory:"
-          pwd
+          echo "Android SDK: $ANDROID_HOME"
+          echo "Current Directory: $(pwd)"
           echo "Directory Contents:"
           ls -la
-          echo "Checking for Android project structure:"
-          find . -name "*.gradle" -type f | head -10
-          find . -name "AndroidManifest.xml" -type f | head -5
-
-      - name: Gradle Wrapper Setup
-        script: |
-          echo "=== Gradle Wrapper Setup ==="
           
-          if [ -f "app/build.gradle" ] && [ -f "build.gradle" ]; then
-            echo "Standard Android-Projekt erkannt"
-            
-            if [ ! -f "gradlew" ]; then
-              echo "Erstelle Gradle Wrapper..."
-              
-              if ! command -v gradle &> /dev/null; then
-                echo "Installiere Gradle..."
-                brew install gradle
-              fi
-              
-              GRADLE_VERSION=$(grep -o "gradle:[0-9.]*" build.gradle | cut -d: -f2 | head -1)
-              if [ -z "$GRADLE_VERSION" ]; then
-                GRADLE_VERSION="8.0"
-              fi
-              echo "Verwende Gradle Version: $GRADLE_VERSION"
-              
-              gradle wrapper --gradle-version $GRADLE_VERSION
-            fi
-            
-            chmod +x gradlew
-            echo "Gradle Wrapper Setup abgeschlossen"
-            ls -la gradlew*
-            
+          echo "=== Project Structure Check ==="
+          if [ -f "build.gradle" ]; then
+            echo "✓ Root build.gradle found"
           else
-            echo "Fehler: Keine Standard Android-Projektstruktur gefunden!"
+            echo "✗ Root build.gradle missing"
             exit 1
           fi
+          
+          if [ -f "app/build.gradle" ]; then
+            echo "✓ App build.gradle found"
+          else
+            echo "✗ App build.gradle missing"
+            exit 1
+          fi
+          
+          if [ -f "settings.gradle" ]; then
+            echo "✓ settings.gradle found"
+          else
+            echo "✗ settings.gradle missing"
+            exit 1
+          fi
+
+      - name: Validate Gradle Files
+        script: |
+          echo "=== Validating Gradle Files ==="
+          
+          # Prüfe build.gradle Syntax
+          echo "Checking root build.gradle syntax..."
+          if command -v gradle &> /dev/null; then
+            echo "Gradle already available"
+          else
+            echo "Installing Gradle..."
+            brew install gradle
+          fi
+          
+          # Teste Gradle-Datei-Syntax
+          echo "Testing Gradle file syntax..."
+          gradle help --project-dir . || {
+            echo "ERROR: Gradle files have syntax errors!"
+            echo "build.gradle content:"
+            cat build.gradle
+            exit 1
+          }
+
+      - name: Create Gradle Wrapper
+        script: |
+          echo "=== Creating Gradle Wrapper ==="
+          
+          if [ ! -f "gradlew" ]; then
+            echo "Creating Gradle wrapper..."
+            gradle wrapper --gradle-version 8.0
+            
+            if [ ! -f "gradlew" ]; then
+              echo "ERROR: Failed to create Gradle wrapper"
+              exit 1
+            fi
+          else
+            echo "Gradle wrapper already exists"
+          fi
+          
+          chmod +x gradlew
+          echo "Gradle wrapper created successfully"
+          ls -la gradlew*
+
+      - name: Gradle Test
+        script: |
+          echo "=== Testing Gradle Wrapper ==="
+          ./gradlew --version
+          echo "Gradle wrapper test successful"
 
       - name: Gradle Clean
         script: |
           echo "=== Gradle Clean ==="
           ./gradlew clean
 
-      - name: Gradle Build Release
+      - name: Gradle Build
         script: |
-          echo "=== Gradle Build Release ==="
-          
+          echo "=== Gradle Build ==="
           ./gradlew assembleRelease \
             -Pandroid.enableJetifier=true \
             -Pandroid.useAndroidX=true \
             --stacktrace \
             --info
-          
-          echo "=== Build Results ==="
-          find . -name "*.apk" -type f | head -10
 
-      - name: Verify APK
+      - name: Verify Build Results
         script: |
-          echo "=== APK Verification ==="
+          echo "=== Build Results ==="
+          find . -name "*.apk" -type f
           
-          APK_FILES=$(find . -name "*.apk" -type f)
-          
-          if [ -z "$APK_FILES" ]; then
-            echo "Fehler: Keine APK-Dateien gefunden!"
+          APK_COUNT=$(find . -name "*.apk" -type f | wc -l)
+          if [ "$APK_COUNT" -eq 0 ]; then
+            echo "ERROR: No APK files found!"
+            echo "Checking build directories..."
+            find . -name "build" -type d
             find . -name "outputs" -type d
             exit 1
+          else
+            echo "SUCCESS: Found $APK_COUNT APK file(s)"
+            find . -name "*.apk" -type f -exec ls -lh {} \;
           fi
-          
-          echo "Gefundene APK-Dateien:"
-          for apk in $APK_FILES; do
-            echo "  $apk ($(du -h "$apk" | cut -f1))"
-          done
 
     artifacts:
       - app/build/outputs/apk/release/*.apk
@@ -113,24 +141,34 @@ workflows:
       java: 17
 
     scripts:
-      - name: Setup
+      - name: Quick Setup
         script: |
           echo "=== Debug Build Setup ==="
           java -version
-          pwd
-          ls -la
-
-      - name: Create Gradle Wrapper
-        script: |
-          if [ ! -f "gradlew" ]; then
+          
+          # Install Gradle if needed
+          if ! command -v gradle &> /dev/null; then
             brew install gradle
+          fi
+
+      - name: Create Wrapper and Build
+        script: |
+          # Create wrapper if needed
+          if [ ! -f "gradlew" ]; then
             gradle wrapper --gradle-version 8.0
           fi
           chmod +x gradlew
-
-      - name: Build Debug APK
-        script: |
+          
+          # Build debug APK
           ./gradlew assembleDebug --stacktrace
+
+      - name: Verify Debug APK
+        script: |
+          find . -name "*.apk" -type f
+          if [ $(find . -name "*.apk" -type f | wc -l) -eq 0 ]; then
+            echo "No APK found!"
+            exit 1
+          fi
 
     artifacts:
       - app/build/outputs/apk/debug/*.apk
