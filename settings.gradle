@@ -7,14 +7,14 @@ pluginManagement {
 }
 
 dependencyResolutionManagement {
-    repositoriesMode.set(RepositoriesMode.PREFER_SETTINGS)  // Geändert von FAIL_ON_PROJECT_REPOS
+    repositoriesMode.set(RepositoriesMode.PREFER_SETTINGS)
     repositories {
         google()
         mavenCentral()
         maven { url 'https://jitpack.io' }
-        maven { url 'https://nordicsemi.github.io/Android-BLE-Library/repository/' }
+        // Entfernt Nordic-spezifisches Repository für bessere Kompatibilität
     }
 }
 
 rootProject.name = "emfad2"
-include(":app")
+include ':app'
