@@ -27,8 +27,28 @@ workflows:
       - name: Setup Gradle
         script: |
           echo "=== Setting up Gradle ==="
+          # Erstelle Gradle Wrapper Directory falls nicht vorhanden
+          mkdir -p gradle/wrapper
+          
           # Stelle sicher, dass Gradle 8.4 verwendet wird (kompatibel mit AGP 8.1.4)
-          echo "distributionUrl=https\://services.gradle.org/distributions/gradle-8.4-bin.zip" > gradle/wrapper/gradle-wrapper.properties
+          cat > gradle/wrapper/gradle-wrapper.properties << EOF
+          distributionBase=GRADLE_USER_HOME
+          distributionPath=wrapper/dists
+          distributionUrl=https\://services.gradle.org/distributions/gradle-8.4-bin.zip
+          zipStoreBase=GRADLE_USER_HOME
+          zipStorePath=wrapper/dists
+          EOF
+          
+          # Erstelle gradle.properties falls nicht vorhanden
+          if [ ! -f "gradle.properties" ]; then
+            cat > gradle.properties << EOF
+          org.gradle.jvmargs=-Xmx4096m -Dfile.encoding=UTF-8
+          org.gradle.parallel=false
+          org.gradle.caching=false
+          android.useAndroidX=true
+          android.enableJetifier=true
+          EOF
+          fi
           
           # Erstelle Gradle Wrapper falls nicht vorhanden
           if [ ! -f "gradlew" ]; then
