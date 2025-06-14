@@ -7,7 +7,7 @@ pluginManagement {
 }
 
 dependencyResolutionManagement {
-    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+    repositoriesMode.set(RepositoriesMode.PREFER_SETTINGS)  // Geändert von FAIL_ON_PROJECT_REPOS
     repositories {
         google()
         mavenCentral()
@@ -16,5 +16,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "emfad2"  // Geändert von "emfad1" zu "emfad2"
+rootProject.name = "emfad2"
 include(":app")
