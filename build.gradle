@@ -16,14 +16,7 @@ buildscript {
     }
 }
 
-allprojects {
-    repositories {
-        google()
-        mavenCentral()
-        maven { url 'https://jitpack.io' }
-        maven { url 'https://nordicsemi.github.io/Android-BLE-Library/repository/' }
-    }
-}
+// Entfernt allprojects Block - Repositories werden in settings.gradle definiert
 
 task clean(type: Delete) {
     delete rootProject.buildDir
