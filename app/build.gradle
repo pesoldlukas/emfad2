@@ -50,7 +50,7 @@ android {
     }
     
     composeOptions {
-        kotlinCompilerExtensionVersion '1.4.0'
+        kotlinCompilerExtensionVersion '1.4.8'  // Aktualisiert für bessere Kompatibilität
     }
     
     packagingOptions {
@@ -67,10 +67,11 @@ android {
         }
     }
     
-    // Add lint options to prevent build failures on warnings
-    lintOptions {
+    // Verbesserte Lint-Optionen
+    lint {
         checkReleaseBuilds false
         abortOnError false
+        disable 'InvalidPackage'
     }
 }
 
@@ -79,8 +80,8 @@ dependencies {
     implementation 'androidx.lifecycle:lifecycle-runtime-ktx:2.7.0'
     implementation 'androidx.activity:activity-compose:1.8.2'
 
-    // Compose BOM for version management
-    implementation platform('androidx.compose:compose-bom:2023.10.01')
+    // Compose BOM für Versionsverwaltung
+    implementation platform('androidx.compose:compose-bom:2024.02.00')
     implementation 'androidx.compose.ui:ui'
     implementation 'androidx.compose.ui:ui-graphics'
     implementation 'androidx.compose.ui:ui-tooling-preview'
@@ -97,17 +98,17 @@ dependencies {
     testImplementation 'junit:junit:4.13.2'
     androidTestImplementation 'androidx.test.ext:junit:1.1.5'
     androidTestImplementation 'androidx.test.espresso:espresso-core:3.5.1'
-    androidTestImplementation platform('androidx.compose:compose-bom:2023.10.01')
+    androidTestImplementation platform('androidx.compose:compose-bom:2024.02.00')
     androidTestImplementation 'androidx.compose.ui:ui-test-junit4'
     debugImplementation 'androidx.compose.ui:ui-tooling'
     debugImplementation 'androidx.compose.ui:ui-test-manifest'
 
-    // Hilt - Updated versions
+    // Hilt - Konsistente Versionen
     implementation 'com.google.dagger:hilt-android:2.48'
     kapt 'com.google.dagger:hilt-android-compiler:2.48'
     implementation 'androidx.hilt:hilt-navigation-compose:1.1.0'
 
-    // Room - Updated version
+    // Room - Stabile Version
     implementation 'androidx.room:room-runtime:2.6.1'
     implementation 'androidx.room:room-ktx:2.6.1'
     kapt 'androidx.room:room-compiler:2.6.1'
@@ -115,7 +116,7 @@ dependencies {
     // Nordic BLE
     implementation 'com.github.NordicSemiconductor:Android-BLE-Library:2.6.1'
 
-    // TensorFlow Lite - Updated versions
+    // TensorFlow Lite - Kompatible Versionen
     implementation 'org.tensorflow:tensorflow-lite:2.13.0'
     implementation 'org.tensorflow:tensorflow-lite-support:0.4.4'
 
@@ -136,8 +137,12 @@ dependencies {
     implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3'
 }
 
-// Ensure kapt uses correct JVM target
+// Kapt-Konfiguration
 kapt {
     correctErrorTypes true
     useBuildCache = true
+    generateStubs = true
+    arguments {
+        arg("room.schemaLocation", "$projectDir/schemas")
+    }
 }
