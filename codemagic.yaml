@@ -15,6 +15,8 @@ workflows:
         script: |
           echo "=== Environment Check ==="
           java -version
+          echo "JAVA_HOME: $JAVA_HOME"
+          echo "ANDROID_HOME: $ANDROID_HOME"
           echo "Project files:"
           ls -la
           echo "App module:"
@@ -27,27 +29,69 @@ workflows:
           gradle --version
           
           echo "=== Creating Gradle Wrapper ==="
-          gradle wrapper --gradle-version 8.0
+          # Use Gradle 8.2 which is compatible with AGP 8.0.0
+          gradle wrapper --gradle-version 8.2
           chmod +x gradlew
           
           echo "=== Testing Wrapper ==="
           ./gradlew --version
 
+      - name: Validate Build Files
+        script: |
+          echo "=== Validating Build Configuration ==="
+          echo "Checking build.gradle files..."
+          if [ ! -f "build.gradle" ]; then
+            echo "ERROR: Root build.gradle not found!"
+            exit 1
+          fi
+          if [ ! -f "app/build.gradle" ]; then
+            echo "ERROR: App build.gradle not found!"
+            exit 1
+          fi
+          if [ ! -f "settings.gradle" ]; then
+            echo "ERROR: settings.gradle not found!"
+            exit 1
+          fi
+          echo "All build files present ✓"
+
+      - name: Clean and Sync
+        script: |
+          echo "=== Cleaning Project ==="
+          ./gradlew clean --stacktrace --info
+          
+          echo "=== Gradle Sync ==="
+          ./gradlew tasks --all
+
       - name: Build Release APK
         script: |
           echo "=== Building Release APK ==="
-          ./gradlew clean
-          ./gradlew assembleRelease --stacktrace
+          # Add more verbose logging
+          ./gradlew assembleRelease \
+            --stacktrace \
+            --info \
+            --no-daemon \
+            --no-build-cache
 
-      - name: Find APK
+      - name: Find and Verify APK
         script: |
           echo "=== Finding APK Files ==="
           find . -name "*.apk" -type f
           
+          # More detailed search
+          echo "=== Build directory contents ==="
+          if [ -d "app/build" ]; then
+            find app/build -type f -name "*.apk" -exec ls -lh {} \;
+          else
+            echo "app/build directory not found!"
+            echo "Available directories:"
+            find . -name "build" -type d
+            exit 1
+          fi
+          
           if [ $(find . -name "*.apk" -type f | wc -l) -eq 0 ]; then
             echo "No APK found! Checking build structure..."
-            find . -name "build" -type d
-            find . -name "outputs" -type d
+            echo "Build outputs structure:"
+            find app/build -type d 2>/dev/null || echo "No build directory found"
             exit 1
           else
             echo "APK found successfully!"
@@ -70,13 +114,13 @@ workflows:
       java: 17
 
     scripts:
-      - name: Quick Build
+      - name: Quick Debug Build
         script: |
           echo "=== Quick Debug Build ==="
           brew install gradle
-          gradle wrapper --gradle-version 8.0
+          gradle wrapper --gradle-version 8.2
           chmod +x gradlew
-          ./gradlew assembleDebug --stacktrace
+          ./gradlew assembleDebug --stacktrace --info
 
     artifacts:
       - app/build/outputs/apk/debug/*.apk
