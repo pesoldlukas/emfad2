@@ -20,7 +20,7 @@ allprojects {
     repositories {
         google()
         mavenCentral()
-        maven { url 'https://jitpack.io' } <mcreference link="https://jitpack.io" index="0"></mcreference>
+        maven { url 'https://jitpack.io' }
         maven { url 'https://nordicsemi.github.io/Android-BLE-Library/repository/' }
     }
 }
