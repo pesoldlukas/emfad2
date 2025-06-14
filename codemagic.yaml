@@ -1,0 +1,126 @@
+workflows:
+  android-release:
+    name: EMFAD Android Release Build
+    max_build_duration: 120
+    instance_type: mac_mini_m2
+
+    environment:
+      vars:
+        JAVA_HOME: /Library/Java/JavaVirtualMachines/zulu-17.jdk/Contents/Home
+      java: 17
+
+    scripts:
+      - name: Setup und Prüfungen
+        script: |
+          echo "=== Environment Setup ==="
+          echo "Java Version:"
+          java -version
+          echo "Current Directory:"
+          pwd
+          echo "Directory Contents:"
+          ls -la
+          echo "Checking for Android project structure:"
+          find . -name "*.gradle" -type f
+          find . -name "gradlew" -type f
+          find . -name "AndroidManifest.xml" -type f
+
+      - name: Gradle Wrapper Setup
+        script: |
+          echo "=== Gradle Wrapper Setup ==="
+          
+          # Prüfe verschiedene mögliche Projektstrukturen
+          if [ -f "./gradlew" ]; then
+            echo "gradlew im Root-Verzeichnis gefunden"
+            GRADLE_DIR="."
+          elif [ -f "./android/gradlew" ]; then
+            echo "gradlew im android/ Verzeichnis gefunden"
+            GRADLE_DIR="./android"
+            cd android
+          elif [ -f "./app/gradlew" ]; then
+            echo "gradlew im app/ Verzeichnis gefunden"
+            GRADLE_DIR="./app"
+            cd app
+          else
+            echo "Kein gradlew gefunden, suche nach build.gradle..."
+            BUILD_GRADLE_PATH=$(find . -name "build.gradle" -path "*/android/*" | head -1)
+            if [ -n "$BUILD_GRADLE_PATH" ]; then
+              GRADLE_DIR=$(dirname "$BUILD_GRADLE_PATH")
+              echo "build.gradle gefunden in: $GRADLE_DIR"
+              cd "$GRADLE_DIR"
+            else
+              # Als letzter Ausweg - erstelle Gradle Wrapper im Root
+              echo "Erstelle neuen Gradle Wrapper..."
+              if ! command -v gradle &> /dev/null; then
+                echo "Installiere Gradle..."
+                brew install gradle
+              fi
+              gradle wrapper --gradle-version 8.0
+              GRADLE_DIR="."
+            fi
+          fi
+          
+          # Setze Ausführungsrechte
+          chmod +x ./gradlew
+          
+          # Verifikation
+          echo "Aktuelle Verzeichnis: $(pwd)"
+          echo "Gradle Wrapper Files:"
+          ls -la gradlew* 2>/dev/null || echo "Keine gradlew Dateien gefunden"
+          ls -la gradle/wrapper/ 2>/dev/null || echo "Kein gradle/wrapper Verzeichnis"
+          
+          # Teste verfügbare Tasks
+          echo "Verfügbare Gradle Tasks:"
+          ./gradlew tasks --all | head -20
+
+      - name: Gradle Clean
+        script: |
+          echo "=== Gradle Clean ==="
+          
+          # Einfachere Lösung - überspringe Clean falls nicht verfügbar
+          ./gradlew clean || echo "Clean übersprungen - Task nicht verfügbar"
+
+      - name: Gradle Build
+        script: |
+          echo "=== Gradle Build ==="
+          
+          # Prüfe verfügbare Build-Tasks
+          echo "Verfügbare Build-Tasks:"
+          ./gradlew tasks | grep -i build | head -10
+          ./gradlew tasks | grep -i assemble | head -10
+          
+          # Versuche verschiedene Build-Befehle
+          if ./gradlew tasks | grep -q "assembleRelease"; then
+            echo "Führe 'assembleRelease' aus..."
+            ./gradlew assembleRelease \
+              -Pandroid.enableJetifier=true \
+              -Pandroid.useAndroidX=true \
+              --stacktrace \
+              --info
+          elif ./gradlew tasks | grep -q "app:assembleRelease"; then
+            echo "Führe 'app:assembleRelease' aus..."
+            ./gradlew app:assembleRelease \
+              -Pandroid.enableJetifier=true \
+              -Pandroid.useAndroidX=true \
+              --stacktrace \
+              --info
+          elif ./gradlew tasks | grep -q "build"; then
+            echo "Führe 'build' aus..."
+            ./gradlew build \
+              -Pandroid.enableJetifier=true \
+              -Pandroid.useAndroidX=true \
+              --stacktrace \
+              --info
+          else
+            echo "Fehler: Keine Build-Tasks gefunden!"
+            echo "Alle verfügbaren Tasks:"
+            ./gradlew tasks
+            exit 1
+          fi
+
+    artifacts:
+      - app/build/outputs/apk/release/*.apk
+      - build/outputs/apk/release/*.apk
+      - "**/build/outputs/apk/release/*.apk"
+      - app/build/reports/
+      - build/reports/
+      - "**/build/reports/"
