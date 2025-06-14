@@ -74,8 +74,11 @@ workflows:
           # Validiere build.gradle Syntax
           ./gradlew help --stacktrace
           
-          echo "=== Dependency Resolution ==="
-          ./gradlew dependencies --configuration implementation
+          echo "=== Project Structure ==="
+          ./gradlew projects
+          
+          echo "=== App Module Dependencies ==="
+          ./gradlew app:dependencies --configuration releaseCompileClasspath --quiet
 
       - name: Clean Build
         script: |
