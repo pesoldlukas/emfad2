@@ -9,8 +9,7 @@ workflows:
         JAVA_HOME: /Library/Java/JavaVirtualMachines/zulu-17.jdk/Contents/Home
         ANDROID_HOME: /opt/homebrew/share/android-commandlinetools
       java: 17
-      android_signing:
-        - keystore_reference
+      # Entfernt android_signing für unsigned APK
 
     scripts:
       - name: Setup und Prüfungen
@@ -94,11 +93,11 @@ workflows:
           echo "=== Gradle Clean ==="
           ./gradlew clean
 
-      - name: Gradle Build
+      - name: Gradle Build Release (Unsigned)
         script: |
-          echo "=== Gradle Build ==="
+          echo "=== Gradle Build Release (Unsigned) ==="
           
-          # Build Release APK
+          # Build Release APK (unsigned)
           ./gradlew assembleRelease \
             -Pandroid.enableJetifier=true \
             -Pandroid.useAndroidX=true \
@@ -128,6 +127,36 @@ workflows:
           for apk in $APK_FILES; do
             echo "  $apk ($(du -h "$apk" | cut -f1))"
           done
+
+      - name: Basic APK Testing
+        script: |
+          echo "=== Basic APK Testing ==="
+          
+          # Finde Release APK
+          RELEASE_APK=$(find . -path "*/release/*.apk" -type f | head -1)
+          
+          if [ -n "$RELEASE_APK" ]; then
+            echo "Testing APK: $RELEASE_APK"
+            
+            # APK Info mit aapt (falls verfügbar)
+            if command -v aapt &> /dev/null; then
+              echo "APK Package Info:"
+              aapt dump badging "$RELEASE_APK" | head -5
+            fi
+            
+            # Dateigröße prüfen
+            APK_SIZE=$(stat -f%z "$RELEASE_APK" 2>/dev/null || stat -c%s "$RELEASE_APK" 2>/dev/null)
+            echo "APK Size: $APK_SIZE bytes"
+            
+            # Mindestgröße prüfen (1MB = 1048576 bytes)
+            if [ "$APK_SIZE" -lt 1048576 ]; then
+              echo "Warning: APK seems unusually small (< 1MB)"
+            else
+              echo "APK size looks reasonable"
+            fi
+          else
+            echo "No release APK found for testing"
+          fi
 
     artifacts:
       - app/build/outputs/apk/release/*.apk
@@ -168,6 +197,56 @@ workflows:
         script: |
           ./gradlew assembleDebug --stacktrace
 
+      - name: Test Debug APK
+        script: |
+          echo "=== Debug APK Testing ==="
+          DEBUG_APK=$(find . -path "*/debug/*.apk" -type f | head -1)
+          if [ -n "$DEBUG_APK" ]; then
+            echo "Debug APK found: $DEBUG_APK"
+            APK_SIZE=$(stat -f%z "$DEBUG_APK" 2>/dev/null || stat -c%s "$DEBUG_APK" 2>/dev/null)
+            echo "Debug APK Size: $APK_SIZE bytes"
+          fi
+
     artifacts:
       - app/build/outputs/apk/debug/*.apk
       - "*/build/outputs/apk/**/*.apk"
+
+  # Neuer Workflow: Signed Release (optional)
+  android-release-signed:
+    name: EMFAD Android Release Build (Signed)
+    max_build_duration: 120
+    instance_type: mac_mini_m2
+    when:
+      branch: main  # Nur für main branch
+
+    environment:
+      vars:
+        JAVA_HOME: /Library/Java/JavaVirtualMachines/zulu-17.jdk/Contents/Home
+        ANDROID_HOME: /opt/homebrew/share/android-commandlinetools
+      java: 17
+      android_signing:
+        - keystore_reference  # Nur wenn Keystore konfiguriert ist
+
+    scripts:
+      - name: Setup
+        script: |
+          echo "=== Signed Release Build Setup ==="
+          java -version
+
+      - name: Create Gradle Wrapper
+        script: |
+          if [ ! -f "gradlew" ]; then
+            brew install gradle
+            gradle wrapper --gradle-version 8.0
+          fi
+          chmod +x gradlew
+
+      - name: Build Signed Release
+        script: |
+          ./gradlew assembleRelease \
+            -Pandroid.enableJetifier=true \
+            -Pandroid.useAndroidX=true \
+            --stacktrace
+
+    artifacts:
+      - app/build/outputs/apk/release/*.apk
