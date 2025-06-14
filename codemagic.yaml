@@ -1,6 +1,6 @@
 workflows:
   android-release:
-    name: EMFAD Android Release Build
+    name: EMFAD2 Android Release Build
     max_build_duration: 120
     instance_type: mac_mini_m2
 
@@ -43,27 +43,16 @@ workflows:
             exit 1
           fi
 
-      - name: Validate Gradle Files
+      - name: Install Gradle
         script: |
-          echo "=== Validating Gradle Files ==="
-          
-          # Prüfe build.gradle Syntax
-          echo "Checking root build.gradle syntax..."
-          if command -v gradle &> /dev/null; then
-            echo "Gradle already available"
-          else
+          echo "=== Installing Gradle ==="
+          if ! command -v gradle &> /dev/null; then
             echo "Installing Gradle..."
             brew install gradle
+          else
+            echo "Gradle already available"
           fi
-          
-          # Teste Gradle-Datei-Syntax
-          echo "Testing Gradle file syntax..."
-          gradle help --project-dir . || {
-            echo "ERROR: Gradle files have syntax errors!"
-            echo "build.gradle content:"
-            cat build.gradle
-            exit 1
-          }
+          gradle --version
 
       - name: Create Gradle Wrapper
         script: |
@@ -85,7 +74,7 @@ workflows:
           echo "Gradle wrapper created successfully"
           ls -la gradlew*
 
-      - name: Gradle Test
+      - name: Test Gradle Wrapper
         script: |
           echo "=== Testing Gradle Wrapper ==="
           ./gradlew --version
@@ -96,9 +85,9 @@ workflows:
           echo "=== Gradle Clean ==="
           ./gradlew clean
 
-      - name: Gradle Build
+      - name: Build Release APK
         script: |
-          echo "=== Gradle Build ==="
+          echo "=== Building Release APK ==="
           ./gradlew assembleRelease \
             -Pandroid.enableJetifier=true \
             -Pandroid.useAndroidX=true \
@@ -130,7 +119,7 @@ workflows:
       - app/build/reports/
 
   android-debug:
-    name: EMFAD Android Debug Build
+    name: EMFAD2 Android Debug Build
     max_build_duration: 60
     instance_type: mac_mini_m2
 
